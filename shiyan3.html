@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>寻宝游戏 - 沉浸式动画版</title>
+    <style>
+        :root {
+            --bg: #1a1a2e;
+            --panel-bg: #16213e;
+            --text: #e0e0e0;
+            --accent: #e94560;
+            --success: #4e9f3d;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        h1 {
+            color: #fca311;
+            text-shadow: 0 0 10px rgba(252, 163, 17, 0.5);
+            margin-bottom: 10px;
+        }
+
+        /* 游戏舞台 */
+        .game-stage {
+            width: 600px;
+            height: 250px;
+            background: #0f3460;
+            border: 3px solid #533483;
+            border-radius: 15px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 0 30px rgba(83, 52, 131, 0.8);
+            margin-bottom: 20px;
+            transition: background 0.5s ease;
+        }
+
+        /* 角色 (探险家) */
+        .player {
+            font-size: 50px;
+            position: absolute;
+            bottom: 20px;
+            left: 10%;
+            transition: left 1s ease-in-out, transform 0.3s;
+            z-index: 10;
+        }
+
+        /* 舞台道具 */
+        .prop {
+            font-size: 40px;
+            position: absolute;
+            opacity: 0;
+            transition: all 0.5s ease;
+            z-index: 5;
+        }
+
+        /* 各种特效类 */
+        .jump {
+            animation: jumpAnim 0.5s ease;
+        }
+        @keyframes jumpAnim {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-40px); }
+        }
+
+        .shake {
+            animation: shakeAnim 0.5s infinite;
+        }
+        @keyframes shakeAnim {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translate(3px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translate(3px, 1px) rotate(-1deg); }
+            80% { transform: translate(-1px, -1px) rotate(1deg); }
+            90% { transform: translate(1px, 2px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
+
+        .glow {
+            filter: drop-shadow(0 0 20px #ffd700);
+            transform: scale(1.2);
+        }
+
+        /* 控制面板与日志 */
+        .controls {
+            width: 600px;
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        button {
+            flex: 1;
+            padding: 12px;
+            font-size: 16px;
+            font-weight: bold;
+            background-color: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        button:hover { background-color: #ff5e7e; }
+        button:disabled { background-color: #555; cursor: not-allowed; }
+
+        .log-panel {
+            width: 600px;
+            height: 150px;
+            background: var(--panel-bg);
+            border-radius: 8px;
+            padding: 15px;
+            box-sizing: border-box;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 15px;
+            border: 1px solid #533483;
+            line-height: 1.5;
+        }
+
+        .log-entry { margin-bottom: 5px; animation: fadeIn 0.3s forwards; opacity: 0; }
+        .log-info { color: #9cdcfe; }
+        .log-success { color: var(--success); font-weight: bold; }
+        .log-error { color: var(--accent); font-weight: bold; }
+        
+        @keyframes fadeIn { to { opacity: 1; } }
+
+        /* 飞箭特效 */
+        .arrow { position: absolute; font-size: 30px; top: 50%; right: -50px; opacity: 0; }
+        .arrow-shoot { animation: shoot 0.5s linear forwards; }
+        @keyframes shoot { 0% { right: -50px; opacity: 1; } 100% { right: 110%; opacity: 1; } }
+
+    </style>
+</head>
+<body>
+
+    <h1>🗺️ 沉浸式寻宝之旅</h1>
+
+    <!-- 舞台区 -->
+    <div class="game-stage" id="stage">
+        <div class="player" id="player">🤠</div>
+        
+        <!-- 场景道具 -->
+        <div class="prop" id="prop-book" style="left: 15%; bottom: 20px;">📚</div>
+        <div class="prop" id="prop-scroll" style="left: 40%; bottom: 20px;">📜</div>
+        <div class="prop" id="prop-temple" style="left: 70%; bottom: 20px;">🏛️</div>
+        <div class="prop" id="prop-box" style="left: 85%; bottom: 20px;">📦</div>
+        <div class="prop" id="prop-guard" style="left: 85%; bottom: 20px;">🛡️</div>
+        <div class="prop" id="prop-treasure" style="left: 85%; bottom: 20px;">💎</div>
+    </div>
+
+    <!-- 按钮 -->
+    <div class="controls">
+        <button id="start-btn">开始寻宝</button>
+    </div>
+
+    <!-- 日志面板 -->
+    <div class="log-panel" id="log-panel">
+        <div class="log-entry log-info">等待冒险者启程...</div>
+    </div>
+
+    <script>
+        // 获取 DOM 元素
+        const stage = document.getElementById('stage');
+        const player = document.getElementById('player');
+        const startBtn = document.getElementById('start-btn');
+        const logPanel = document.getElementById('log-panel');
+        
+        // 舞台道具
+        const propBook = document.getElementById('prop-book');
+        const propScroll = document.getElementById('prop-scroll');
+        const propTemple = document.getElementById('prop-temple');
+        const propBox = document.getElementById('prop-box');
+        const propGuard = document.getElementById('prop-guard');
+        const propTreasure = document.getElementById('prop-treasure');
+
+        // 辅助工具
+        const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+        function log(msg, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `log-entry log-${type}`;
+            div.textContent = msg;
+            logPanel.appendChild(div);
+            logPanel.scrollTop = logPanel.scrollHeight;
+        }
+
+        // 重置舞台
+        function resetStage() {
+            logPanel.innerHTML = '';
+            player.style.left = '10%';
+            player.textContent = '🤠';
+            player.className = 'player';
+            stage.style.background = '#0f3460';
+            
+            // 隐藏所有道具
+            [propBook, propScroll, propTemple, propBox, propGuard, propTreasure].forEach(p => {
+                p.style.opacity = '0';
+                p.classList.remove('glow');
+            });
+            
+            // 移除飞箭
+            document.querySelectorAll('.arrow').forEach(a => a.remove());
+        }
+
+        // 模拟宝藏地图API (纯逻辑)
+        class TreasureMap {
+            static getInitialClue() { return new Promise(r => setTimeout(() => r("在古老的图书馆里找到了第一个线索..."), 1000)); }
+            static decodeAncientScript(clue) { return new Promise((r, j) => setTimeout(() => { if(!clue) j("无解码"); r("解码成功!宝藏在一座古老的神庙中..."); }, 1500)); }
+            static dodgeTraps() { return new Promise(r => setTimeout(() => r("惊险！你成功躲过了神庙里的飞箭机关！"), 1200)); }
+            static searchTemple() { return new Promise((r, j) => setTimeout(() => { Math.random() < 0.5 ? j("糟糕!遇到了神庙守卫!") : r("找到了一个神秘的箱子..."); }, 2000)); }
+            static solveRunes() { return new Promise(r => setTimeout(() => r("箱子上刻着符文，你念出咒语，符文发光了！"), 1000)); }
+            static openTreasureBox() { return new Promise(r => setTimeout(() => r("恭喜!你找到了传说中的宝藏!"), 1000)); }
+        }
+
+        // 核心：结合了动画的 async/await 流程
+        async function startAdventure() {
+            startBtn.disabled = true;
+            startBtn.textContent = '寻宝中...';
+            resetStage();
+
+            try {
+                // 1. 图书馆找线索
+                log("前往古老的图书馆...", 'info');
+                propBook.style.opacity = '1';
+                player.style.left = '15%';
+                await sleep(1000);
+                
+                const clue = await TreasureMap.getInitialClue();
+                log("🔍 " + clue);
+                player.classList.add('jump');
+                await sleep(500);
+
+                // 2. 解码古文
+                log("来到解码台研究古文...");
+                propScroll.style.opacity = '1';
+                player.style.left = '40%';
+                await sleep(1500);
+
+                const location = await TreasureMap.decodeAncientScript(clue);
+                log("🧩 " + location);
+                
+                // 3. 躲避机关
+                log("深入神庙，遇到机关！", 'error');
+                propTemple.style.opacity = '1';
+                player.style.left = '70%';
+                stage.classList.add('shake');
+                
+                // 生成飞箭特效
+                const arrow = document.createElement('div');
+                arrow.className = 'arrow arrow-shoot';
+                arrow.textContent = '🏹';
+                stage.appendChild(arrow);
+                await sleep(500);
+
+                stage.classList.remove('shake');
+                const dodgeResult = await TreasureMap.dodgeTraps();
+                log("🏃 " + dodgeResult);
+                arrow.remove();
+                
+                // 4. 搜索神庙 (有50%失败率)
+                log("搜索神庙大厅...");
+                player.style.left = '85%';
+                await sleep(1000); // 假装在找
+
+                // 这里如果失败会直接抛出错误跳到 catch
+                const box = await TreasureMap.searchTemple();
+                log("📦 " + box);
+                propBox.style.opacity = '1';
+
+                // 5. 破解符文
+                log("检查神秘箱子...");
+                const runeResult = await TreasureMap.solveRunes();
+                log("✨ " + runeResult);
+                propBox.classList.add('glow');
+                await sleep(1000);
+
+                // 6. 开宝箱
+                log("打开宝箱...");
+                propBox.style.opacity = '0'; // 箱子消失
+                propTreasure.style.opacity = '1';
+                propTreasure.classList.add('glow');
+                stage.style.background = '#4e9f3d'; // 背景变绿
+                player.textContent = '🤩';
+                
+                const treasure = await TreasureMap.openTreasureBox();
+                log("🎉 " + treasure, 'success');
+
+            } catch (error) {
+                // 失败动画（遇到守卫）
+                log("❌ 任务失败: " + error, 'error');
+                stage.style.background = '#5c1a1a'; // 背景变红
+                player.textContent = '💀';
+                propGuard.style.opacity = '1';
+                propGuard.classList.add('glow');
+            } finally {
+                startBtn.disabled = false;
+                startBtn.textContent = '再次寻宝';
+            }
+        }
+
+        // 绑定点击事件
+        startBtn.addEventListener('click', startAdventure);
+    </script>
+</body>
+</html>
